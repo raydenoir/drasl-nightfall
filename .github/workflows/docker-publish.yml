@@ -29,23 +29,15 @@ jobs:
           images: raydenoir/drasl
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push OCI image
         env:
-          REFERENCES: ${{ steps.meta.outputs.tags }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          REFERENCE: ${{ steps.meta.outputs.tags }}
         run: |
-          echo "$DOCKERHUB_TOKEN" | buildah login -u "$DOCKERHUB_USERNAME" --password-stdin docker.io
+          # Build only for x86_64-linux (skip aarch64)
+          NIX_BUILD_CORES=$(nproc)  # Use all CPU cores
+          oci_archive="$(nix build --no-link --print-out-paths ".#oci-cross-x86_64-linux")"
 
-          buildah manifest create drasl
+          # Push directly to Docker Hub (no manifest, no compression)
+          buildah push --compression none "docker-archive:$oci_archive" "docker://$REFERENCE"
 
-          for system in 'x86_64-linux' 'aarch64-linux'; do
-            oci_archive="$(nix build --no-link --print-out-paths ".#oci-cross-$system")"
-            buildah manifest add drasl "docker-archive:$oci_archive"
-          done
-
-          for reference in $REFERENCES; do
-            buildah manifest push --all -f v2s2 drasl "docker://$reference"
-          done
