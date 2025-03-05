@@ -39,5 +39,7 @@ jobs:
           oci_archive="$(nix build --no-link --print-out-paths ".#oci-cross-x86_64-linux")"
 
           # Push directly to Docker Hub (no manifest, no compression)
-          buildah push "docker-archive:$oci_archive" "docker://$REFERENCE"
+          for reference in $REFERENCES; do
+            buildah push "docker-archive:$oci_archive" "docker://$REFERENCE"
+          done
 
